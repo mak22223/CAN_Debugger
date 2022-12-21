@@ -17,8 +17,8 @@
   */
 
 /* Includes ------------------------------------------------------------------*/
-#include "usbd_ctlreq.h"
-#include "usbd_ioreq.h"
+#include "usb/usblib/core/usbd_ctlreq.h"
+#include "usb/usblib/core/usbd_ioreq.h"
 
 #ifdef USE_USBD_COMPOSITE
 #include "usbd_composite_builder.h"

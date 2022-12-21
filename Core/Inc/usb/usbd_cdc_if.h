@@ -27,7 +27,7 @@
 #endif
 
 /* Includes ------------------------------------------------------------------*/
-#include "usbd_cdc.h"
+#include "usb/usblib/cdc/usbd_cdc.h"
 
 /* USER CODE BEGIN INCLUDE */
 
@@ -108,6 +108,9 @@ extern USBD_CDC_ItfTypeDef USBD_Interface_fops_FS;
 uint8_t CDC_Transmit_FS(uint8_t* Buf, uint16_t Len);
 
 /* USER CODE BEGIN EXPORTED_FUNCTIONS */
+
+uint8_t Com_Msg_Available();
+uint8_t Com_Read_Msg(uint8_t *buf, uint16_t len);
 
 /* USER CODE END EXPORTED_FUNCTIONS */
 

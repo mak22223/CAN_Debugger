@@ -25,10 +25,10 @@ extern "C" {
 #endif
 
 /* Includes ------------------------------------------------------------------*/
-#include "usbd_conf.h"
-#include "usbd_def.h"
-#include "usbd_ioreq.h"
-#include "usbd_ctlreq.h"
+#include "usb/usbd_conf.h"
+#include "usb/usblib/core/usbd_def.h"
+#include "usb/usblib/core/usbd_ioreq.h"
+#include "usb/usblib/core/usbd_ctlreq.h"
 
 /** @addtogroup STM32_USB_DEVICE_LIBRARY
   * @{

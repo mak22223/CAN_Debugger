@@ -19,7 +19,7 @@
 /* USER CODE END Header */
 
 /* Includes ------------------------------------------------------------------*/
-#include "usbd_cdc_if.h"
+#include "usb/usbd_cdc_if.h"
 
 /* USER CODE BEGIN INCLUDE */
 
@@ -49,6 +49,21 @@
   */
 
 /* USER CODE BEGIN PRIVATE_TYPES */
+
+typedef struct ComMsgBuf {
+	uint8_t unreadMsgsCnt;
+	uint8_t firstMsg;
+	uint8_t afterLastMsg;
+	uint16_t msgsOffs[8];
+
+	uint8_t buf[1024];
+};
+
+typedef enum
+{
+  QUEUE_OK = 0U,
+  QUEUE_FULL
+} QueueStatusTypeDef;
 
 /* USER CODE END PRIVATE_TYPES */
 
@@ -128,6 +143,8 @@ static int8_t CDC_Receive_FS(uint8_t* pbuf, uint32_t *Len);
 static int8_t CDC_TransmitCplt_FS(uint8_t *pbuf, uint32_t *Len, uint8_t epnum);
 
 /* USER CODE BEGIN PRIVATE_FUNCTIONS_DECLARATION */
+
+static uint8_t Com_Append_Data(uint8_t *buf, uint16_t len);
 
 /* USER CODE END PRIVATE_FUNCTIONS_DECLARATION */
 
@@ -261,8 +278,17 @@ static int8_t CDC_Control_FS(uint8_t cmd, uint8_t* pbuf, uint16_t length)
 static int8_t CDC_Receive_FS(uint8_t* Buf, uint32_t *Len)
 {
   /* USER CODE BEGIN 6 */
-  USBD_CDC_SetRxBuffer(&hUsbDeviceFS, &Buf[0]);
+
+//  USBD_CDC_SetRxBuffer(&hUsbDeviceFS, &Buf[0]);
+
   USBD_CDC_ReceivePacket(&hUsbDeviceFS);
+
+  if (Com_Append_Data(Buf, *Len) != QUEUE_OK) {
+	  Error_Handler();
+  }
+
+
+
   return (USBD_OK);
   /* USER CODE END 6 */
 }
