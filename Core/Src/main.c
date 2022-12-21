@@ -19,6 +19,7 @@
 /* Includes ------------------------------------------------------------------*/
 #include "main.h"
 #include "usb_device.h"
+#include "usbd_cdc_if.h"
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
@@ -118,6 +119,7 @@ int main(void)
   // Initialize button timers
   uint32_t btn1Timer = HAL_GetTick();
   uint32_t ledTimer = HAL_GetTick();
+  uint32_t sendTimer = HAL_GetTick();
   uint32_t ledDuty = 512;
   uint32_t ledPwmCounter = 0U;
   uint32_t ledDutyTimer = HAL_GetTick();;
@@ -153,7 +155,7 @@ int main(void)
 			ledPwmCounter = 0;
 		}
 
-		// изменение коэффициента заполнения Ш�?М раз в 1 мс
+		// изменение коэффициента заполнения ШИМ раз в 1 мс
 		if (ledDutyTimer + 1 < HAL_GetTick()) {
 			ledDutyTimer = HAL_GetTick();
 			if ((ledDuty == 0) || (ledDuty == 1023)) {
@@ -169,13 +171,16 @@ int main(void)
 		if (ledTimer + 500 < HAL_GetTick()){
 			HAL_GPIO_TogglePin(GPIOC, GPIO_PIN_13);
 			ledTimer = HAL_GetTick();
-			char testData[] = "Aboba";
-			CDC_Transmit_FS(testData, 6);
 		}
 	}
 
+	if (sendTimer + 1000 < HAL_GetTick()) {
+		sendTimer = HAL_GetTick();
 
+//		uint8_t msg[] = "Hi!\n";
+//		CDC_Transmit_FS(msg, 5);
 
+	}
 
 
     /* USER CODE END WHILE */
