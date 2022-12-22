@@ -18,11 +18,11 @@
 /* USER CODE END Header */
 /* Includes ------------------------------------------------------------------*/
 #include "main.h"
-#include "usb_device.h"
+#include "usb/usb_device.h"
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
-
+#include "usb/usbd_cdc_if.h"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -118,6 +118,7 @@ int main(void)
   // Initialize button timers
   uint32_t btn1Timer = HAL_GetTick();
   uint32_t ledTimer = HAL_GetTick();
+  uint32_t sendTimer = HAL_GetTick();
   uint32_t ledDuty = 512;
   uint32_t ledPwmCounter = 0U;
   uint32_t ledDutyTimer = HAL_GetTick();;
@@ -169,14 +170,22 @@ int main(void)
 		if (ledTimer + 500 < HAL_GetTick()){
 			HAL_GPIO_TogglePin(GPIOC, GPIO_PIN_13);
 			ledTimer = HAL_GetTick();
-			char testData[] = "Aboba";
-			CDC_Transmit_FS(testData, 6);
 		}
 	}
 
+	if (sendTimer + 1000 < HAL_GetTick()) {
+		sendTimer = HAL_GetTick();
 
+//		uint8_t msg[] = "Hi!\n";
+//		CDC_Transmit_FS(msg, 5);
+	}
 
-
+	uint8_t cmdBuf[256];
+	if (Com_Read_Msg(cmdBuf, 256) == BUF_OK) {
+		int i;
+		for(i = 0; cmdBuf[i] != '\r'; ++i);
+		CDC_Transmit_FS(cmdBuf, ++i);
+	}
 
     /* USER CODE END WHILE */
 
@@ -325,6 +334,9 @@ static void MX_GPIO_Init(void)
   /*Configure GPIO pin Output Level */
   HAL_GPIO_WritePin(GPIOA, CAN1_CS_Pin|CAN2_CS_Pin, GPIO_PIN_RESET);
 
+  /*Configure GPIO pin Output Level */
+  HAL_GPIO_WritePin(ERROR_LED_GPIO_Port, ERROR_LED_Pin, GPIO_PIN_SET);
+
   /*Configure GPIO pin : USER_LED_Pin */
   GPIO_InitStruct.Pin = USER_LED_Pin;
   GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_OD;
@@ -351,6 +363,13 @@ static void MX_GPIO_Init(void)
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   HAL_GPIO_Init(GPIOB, &GPIO_InitStruct);
 
+  /*Configure GPIO pin : ERROR_LED_Pin */
+  GPIO_InitStruct.Pin = ERROR_LED_Pin;
+  GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_OD;
+  GPIO_InitStruct.Pull = GPIO_NOPULL;
+  GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
+  HAL_GPIO_Init(ERROR_LED_GPIO_Port, &GPIO_InitStruct);
+
 }
 
 /* USER CODE BEGIN 4 */
@@ -366,8 +385,11 @@ void Error_Handler(void)
   /* USER CODE BEGIN Error_Handler_Debug */
   /* User can add his own implementation to report the HAL error return state */
   __disable_irq();
+
+  HAL_GPIO_WritePin(ERROR_LED_GPIO_Port, ERROR_LED_Pin, GPIO_PIN_RESET);
   while (1)
   {
+
   }
   /* USER CODE END Error_Handler_Debug */
 }
