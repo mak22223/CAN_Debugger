@@ -50,20 +50,17 @@
 
 /* USER CODE BEGIN PRIVATE_TYPES */
 
-typedef struct ComMsgBuf {
-	uint8_t unreadMsgsCnt;
-	uint8_t firstMsg;
-	uint8_t afterLastMsg;
-	uint16_t msgsOffs[8];
+typedef struct {
+	uint16_t firstChar;
+	uint16_t lastChar;
 
-	uint8_t buf[1024];
-};
+	uint8_t noMessages;
+	uint8_t empty;
 
-typedef enum
-{
-  QUEUE_OK = 0U,
-  QUEUE_FULL
-} QueueStatusTypeDef;
+	int16_t nextMessageEnd;
+
+	uint8_t buf[COMMAND_BUF_SIZE];
+} ComMsgBuf;
 
 /* USER CODE END PRIVATE_TYPES */
 
@@ -110,6 +107,16 @@ uint8_t UserTxBufferFS[APP_TX_DATA_SIZE];
 
 /* USER CODE BEGIN PRIVATE_VARIABLES */
 
+ComMsgBuf msgBuf =
+{
+  0,  // firstChar
+  0,  // lastChar
+  1,  // noMessages
+  1,  // empty
+  -1, // nextMessageEnd
+  { '\0' } // buf
+};
+
 /* USER CODE END PRIVATE_VARIABLES */
 
 /**
@@ -145,6 +152,8 @@ static int8_t CDC_TransmitCplt_FS(uint8_t *pbuf, uint32_t *Len, uint8_t epnum);
 /* USER CODE BEGIN PRIVATE_FUNCTIONS_DECLARATION */
 
 static uint8_t Com_Append_Data(uint8_t *buf, uint16_t len);
+static uint16_t Get_Buffer_Free_Space();
+static uint16_t Get_Cyclic_Distance(uint16_t start, uint16_t end, uint16_t bufSize);
 
 /* USER CODE END PRIVATE_FUNCTIONS_DECLARATION */
 
@@ -283,11 +292,9 @@ static int8_t CDC_Receive_FS(uint8_t* Buf, uint32_t *Len)
 
   USBD_CDC_ReceivePacket(&hUsbDeviceFS);
 
-  if (Com_Append_Data(Buf, *Len) != QUEUE_OK) {
+  if (Com_Append_Data(Buf, *Len) != BUF_OK) {
 	  Error_Handler();
   }
-
-
 
   return (USBD_OK);
   /* USER CODE END 6 */
@@ -342,6 +349,123 @@ static int8_t CDC_TransmitCplt_FS(uint8_t *Buf, uint32_t *Len, uint8_t epnum)
 }
 
 /* USER CODE BEGIN PRIVATE_FUNCTIONS_IMPLEMENTATION */
+
+static uint8_t Com_Append_Data(uint8_t *buf, uint16_t len)
+{
+  BufStatusTypeDef status = BUF_OK;
+
+  if (Get_Buffer_Free_Space() < len) {
+	return BUF_FULL;
+  }
+
+  if (msgBuf.lastChar + len >= COMMAND_BUF_SIZE) {
+	uint16_t symbolsToCycle = COMMAND_BUF_SIZE - msgBuf.lastChar;
+	strncpy((char*)&msgBuf.buf[msgBuf.lastChar], (char*)&buf[0], symbolsToCycle);
+	strncpy((char*)&msgBuf.buf[0], (char*)&buf[symbolsToCycle], len - symbolsToCycle);
+
+	msgBuf.lastChar = msgBuf.lastChar + len - COMMAND_BUF_SIZE;
+  } else {
+	strncpy((char*)&msgBuf.buf[msgBuf.lastChar], (char*)&buf[0], len);
+
+	msgBuf.lastChar = msgBuf.lastChar + len;
+  }
+
+  if (len > 0) {
+	msgBuf.noMessages = 0;
+	msgBuf.empty = 0;
+  }
+
+  return status;
+}
+
+static uint16_t Get_Buffer_Free_Space()
+{
+  uint16_t result;
+  if (msgBuf.lastChar < msgBuf.firstChar && !msgBuf.empty) {
+	result = msgBuf.firstChar - msgBuf.lastChar;
+  } else {
+	result = COMMAND_BUF_SIZE - (msgBuf.lastChar - msgBuf.firstChar);
+  }
+  return result;
+}
+
+static uint16_t Get_Cyclic_Distance(uint16_t start, uint16_t end, uint16_t bufSize)
+{
+  uint16_t result;
+  if (end < start) {
+	result = COMMAND_BUF_SIZE - (start - end);
+  } else {
+	result = end - start;
+  }
+  return result;
+}
+
+uint8_t Com_Msg_Available()
+{
+  uint8_t result = 0;
+  uint16_t cur = msgBuf.firstChar;
+  if (!msgBuf.empty && !msgBuf.noMessages && (msgBuf.nextMessageEnd == -1)) {
+	do {
+	  if (msgBuf.buf[cur] == '\r') {
+		result = 1;
+	  }
+
+	  ++cur;
+
+	  if (cur > 1023) {
+		cur = 0;
+	  }
+	}
+	while ((cur != msgBuf.lastChar) && (result == 0));
+  }
+
+  if (!result) {
+	msgBuf.noMessages = 1;
+	msgBuf.nextMessageEnd = -1;
+  } else {
+	msgBuf.noMessages = 0;
+	msgBuf.nextMessageEnd = cur;
+  }
+
+  /// TODO: нужна проверка на заполненность буфера и отсутствие в нем сообщений.
+
+  return result || msgBuf.nextMessageEnd != -1;
+}
+
+uint16_t Com_Read_Msg(uint8_t *buf, uint16_t bufLen)
+{
+  BufStatusTypeDef result = BUF_OK;
+  if (!Com_Msg_Available()) {
+    return BUF_NOMSGAVAIL;
+  }
+
+  uint16_t len = Get_Cyclic_Distance(msgBuf.firstChar, msgBuf.nextMessageEnd, COMMAND_BUF_SIZE);
+
+  if (bufLen < len) {
+	return BUF_NOTENOUGHSPACE;
+  }
+
+  if (msgBuf.firstChar + len >= COMMAND_BUF_SIZE) {
+	uint16_t symbolsToCycle = COMMAND_BUF_SIZE - msgBuf.firstChar;
+	strncpy((char*)&buf[0], (char*)&msgBuf.buf[msgBuf.firstChar], symbolsToCycle);
+	strncpy((char*)&buf[symbolsToCycle], (char*)&msgBuf.buf[0], len - symbolsToCycle);
+
+	msgBuf.firstChar += len - COMMAND_BUF_SIZE;
+  } else {
+	strncpy((char*)&buf[0], (char*)&msgBuf.buf[msgBuf.firstChar], len);
+
+	msgBuf.firstChar += len;
+  }
+
+  msgBuf.nextMessageEnd = -1;
+
+  if (msgBuf.firstChar == msgBuf.lastChar) {
+	msgBuf.empty = 1;
+	msgBuf.noMessages = 1;
+  }
+
+  return result;
+}
 
 /* USER CODE END PRIVATE_FUNCTIONS_IMPLEMENTATION */
 
