@@ -52,7 +52,7 @@
 #define APP_TX_DATA_SIZE  1000
 /* USER CODE BEGIN EXPORTED_DEFINES */
 
-#define COMMAND_BUF_SIZE 10
+#define COMMAND_BUF_SIZE 1024
 
 /* USER CODE END EXPORTED_DEFINES */
 
@@ -120,7 +120,9 @@ uint8_t CDC_Transmit_FS(uint8_t* Buf, uint16_t Len);
 /* USER CODE BEGIN EXPORTED_FUNCTIONS */
 
 uint8_t Com_Msg_Available();
-uint16_t Com_Read_Msg(uint8_t *buf, uint16_t len);
+uint8_t Com_Read_Msg(uint8_t *buf, uint16_t len);
+void Com_Buf_Reset();
+
 
 /* USER CODE END EXPORTED_FUNCTIONS */
 

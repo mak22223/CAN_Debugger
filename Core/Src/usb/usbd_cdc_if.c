@@ -288,12 +288,11 @@ static int8_t CDC_Receive_FS(uint8_t* Buf, uint32_t *Len)
 {
   /* USER CODE BEGIN 6 */
 
-//  USBD_CDC_SetRxBuffer(&hUsbDeviceFS, &Buf[0]);
-
+  USBD_CDC_SetRxBuffer(&hUsbDeviceFS, &Buf[0]);
   USBD_CDC_ReceivePacket(&hUsbDeviceFS);
 
   if (Com_Append_Data(Buf, *Len) != BUF_OK) {
-	  Error_Handler();
+	Error_Handler();
   }
 
   return (USBD_OK);
@@ -392,7 +391,7 @@ static uint16_t Get_Buffer_Free_Space()
 static uint16_t Get_Cyclic_Distance(uint16_t start, uint16_t end, uint16_t bufSize)
 {
   uint16_t result;
-  if (end < start) {
+  if (end <= start) {
 	result = COMMAND_BUF_SIZE - (start - end);
   } else {
 	result = end - start;
@@ -402,6 +401,7 @@ static uint16_t Get_Cyclic_Distance(uint16_t start, uint16_t end, uint16_t bufSi
 
 uint8_t Com_Msg_Available()
 {
+  __disable_irq();
   uint8_t result = 0;
   uint16_t cur = msgBuf.firstChar;
   if (!msgBuf.empty && !msgBuf.noMessages && (msgBuf.nextMessageEnd == -1)) {
@@ -412,7 +412,7 @@ uint8_t Com_Msg_Available()
 
 	  ++cur;
 
-	  if (cur > 1023) {
+	  if (cur >= COMMAND_BUF_SIZE) {
 		cur = 0;
 	  }
 	}
@@ -427,18 +427,18 @@ uint8_t Com_Msg_Available()
 	msgBuf.nextMessageEnd = cur;
   }
 
-  /// TODO: нужна проверка на заполненность буфера и отсутствие в нем сообщений.
-
+  __enable_irq();
   return result || msgBuf.nextMessageEnd != -1;
 }
 
-uint16_t Com_Read_Msg(uint8_t *buf, uint16_t bufLen)
+uint8_t Com_Read_Msg(uint8_t *buf, uint16_t bufLen)
 {
   BufStatusTypeDef result = BUF_OK;
   if (!Com_Msg_Available()) {
     return BUF_NOMSGAVAIL;
   }
 
+  __disable_irq();
   uint16_t len = Get_Cyclic_Distance(msgBuf.firstChar, msgBuf.nextMessageEnd, COMMAND_BUF_SIZE);
 
   if (bufLen < len) {
@@ -464,7 +464,19 @@ uint16_t Com_Read_Msg(uint8_t *buf, uint16_t bufLen)
 	msgBuf.noMessages = 1;
   }
 
+  __enable_irq();
   return result;
+}
+
+void Com_Buf_Reset()
+{
+	__disable_irq();
+	msgBuf.empty = 1;
+	msgBuf.firstChar = 0;
+	msgBuf.lastChar = 0;
+	msgBuf.noMessages = 1;
+	msgBuf.nextMessageEnd = -1;
+	__enable_irq();
 }
 
 /* USER CODE END PRIVATE_FUNCTIONS_IMPLEMENTATION */
