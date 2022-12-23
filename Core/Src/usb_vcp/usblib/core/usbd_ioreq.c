@@ -17,7 +17,7 @@
   */
 
 /* Includes ------------------------------------------------------------------*/
-#include "usb/usblib/core/usbd_ioreq.h"
+#include <usb_vcp/usblib/core/usbd_ioreq.h>
 
 /** @addtogroup STM32_USB_DEVICE_LIBRARY
   * @{

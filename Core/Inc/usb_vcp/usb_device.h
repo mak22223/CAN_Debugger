@@ -29,7 +29,7 @@
 /* Includes ------------------------------------------------------------------*/
 #include "stm32f4xx.h"
 #include "stm32f4xx_hal.h"
-#include "usb/usblib/core/usbd_def.h"
+#include <usb_vcp/usblib/core/usbd_def.h>
 
 /* USER CODE BEGIN INCLUDE */
 

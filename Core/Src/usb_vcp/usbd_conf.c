@@ -19,12 +19,12 @@
 /* USER CODE END Header */
 
 /* Includes ------------------------------------------------------------------*/
+#include <usb_vcp/usblib/cdc/usbd_cdc.h>
+#include <usb_vcp/usblib/core/usbd_core.h>
+#include <usb_vcp/usblib/core/usbd_def.h>
 #include "stm32f4xx.h"
 #include "stm32f4xx_hal.h"
-#include "usb/usblib/core/usbd_def.h"
-#include "usb/usblib/core/usbd_core.h"
-
-#include "usb/usblib/cdc/usbd_cdc.h"
+#include "usb_vcp/usblib/cdc/usbd_cdc.h"
 
 /* USER CODE BEGIN Includes */
 

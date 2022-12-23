@@ -17,7 +17,7 @@
   */
 
 /* Includes ------------------------------------------------------------------*/
-#include "usb/usblib/core/usbd_core.h"
+#include <usb_vcp/usblib/core/usbd_core.h>
 
 #ifdef USE_USBD_COMPOSITE
 #include "usbd_composite_builder.h"

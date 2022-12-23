@@ -26,7 +26,7 @@
 #endif
 
 /* Includes ------------------------------------------------------------------*/
-#include "usb/usblib/core/usbd_def.h"
+#include <usb_vcp/usblib/core/usbd_def.h>
 
 /* USER CODE BEGIN INCLUDE */
 

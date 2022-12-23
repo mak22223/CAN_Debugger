@@ -20,11 +20,11 @@
 
 /* Includes ------------------------------------------------------------------*/
 
-#include "usb/usb_device.h"
-#include "usb/usblib/core/usbd_core.h"
-#include "usb/usbd_desc.h"
-#include "usb/usblib/cdc/usbd_cdc.h"
-#include "usb/usbd_cdc_if.h"
+#include <usb_vcp/usb_device.h>
+#include <usb_vcp/usbd_cdc_if.h>
+#include <usb_vcp/usbd_desc.h>
+#include <usb_vcp/usblib/cdc/usbd_cdc.h>
+#include <usb_vcp/usblib/core/usbd_core.h>
 
 /* USER CODE BEGIN Includes */
 
