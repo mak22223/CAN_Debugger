@@ -17,14 +17,10 @@
   */
 /* USER CODE END Header */
 /* Includes ------------------------------------------------------------------*/
-#include "Button.h"
+#include <usb_vcp/usb_device.h>
+#include <usb_vcp/usbd_cdc_if.h>
 #include "main.h"
-#include "usb/usb_device.h"
-
-/* Private includes ----------------------------------------------------------*/
-/* USER CODE BEGIN Includes */
-
-#include "usb/usbd_cdc_if.h"
+#include "Button.h"
 
 /* USER CODE END Includes */
 
@@ -35,8 +31,6 @@
 
 /* Private define ------------------------------------------------------------*/
 /* USER CODE BEGIN PD */
-
-#define BTN_DEBOUNCE_TIME 70
 
 /* USER CODE END PD */
 
@@ -50,9 +44,17 @@ RTC_HandleTypeDef hrtc;
 
 SPI_HandleTypeDef hspi1;
 
-Button_TypeDef user_btn;
-
 /* USER CODE BEGIN PV */
+
+// User LED Variables
+uint32_t ledTimer = 0;
+uint32_t ledDuty = 512;
+uint32_t ledPwmCounter = 0U;
+uint32_t ledDutyTimer = 0;
+uint32_t dutyDirection = 1;
+uint32_t ledMode = 0;
+
+Button_TypeDef user_btn;
 
 /* USER CODE END PV */
 
@@ -62,6 +64,9 @@ static void MX_GPIO_Init(void);
 static void MX_RTC_Init(void);
 static void MX_SPI1_Init(void);
 /* USER CODE BEGIN PFP */
+
+static void User_LED_Init();
+static void breatheTick();
 
 /* USER CODE END PFP */
 
@@ -100,19 +105,14 @@ int main(void)
   MX_GPIO_Init();
   MX_RTC_Init();
   MX_SPI1_Init();
-  MX_USB_DEVICE_Init();
-
+  MX_USB_DEVICE_Init();  
   /* USER CODE BEGIN 2 */
 
+  // Initialize device modules
+  User_LED_Init();
   Btn_Init(&user_btn, USER_BTN_GPIO_Port, USER_BTN_Pin, GPIO_PIN_RESET);
 
-  // Initialize button timers
-  uint32_t ledTimer = HAL_GetTick();
-  uint32_t ledDuty = 512;
-  uint32_t ledPwmCounter = 0U;
-  uint32_t ledDutyTimer = HAL_GetTick();;
-  uint32_t dutyDirection = 1;
-  uint32_t ledMode = 0;
+
 
   /* USER CODE END 2 */
 
@@ -124,38 +124,18 @@ int main(void)
       ledMode = !ledMode;
     }
 
-    if (ledMode == 0) {
-      // имитация аппаратного счетчика
-      ++ledPwmCounter;
-      if (ledPwmCounter > 1023) {
-        ledPwmCounter = 0;
-      }
+    breatheTick();
 
-      // изменение коэффициента заполнения Ш�?М раз в 1 мс
-      if (ledDutyTimer + 1 < HAL_GetTick()) {
-        ledDutyTimer = HAL_GetTick();
-        if ((ledDuty == 0) || (ledDuty == 1023)) {
-          dutyDirection = !dutyDirection;
-        }
+//    uint8_t command;
+//    CommandParametersStructTypeDef param;
+//    command = some_command_processing_function(command, param);
 
-        ledDuty += (dutyDirection) ? 1 : -1;
-      }
-
-      // установка состояния выхода в зависимости от текущего состояния счетчика и коэффициента заполнения
-      HAL_GPIO_WritePin(GPIOC, GPIO_PIN_13, (ledPwmCounter < ledDuty) ? GPIO_PIN_RESET : GPIO_PIN_SET);
-    } else {
-      if (ledTimer + 500 < HAL_GetTick()){
-        HAL_GPIO_TogglePin(GPIOC, GPIO_PIN_13);
-        ledTimer = HAL_GetTick();
-      }
-    }
-
-    uint8_t cmdBuf[256];
-    if (Com_Read_Msg(cmdBuf, 256) == BUF_OK) {
-      int i;
-      for(i = 0; cmdBuf[i] != '\r'; ++i);
-      CDC_Transmit_FS(cmdBuf, ++i);
-    }
+//    uint8_t cmdBuf[256];
+//    if (Com_Read_Msg(cmdBuf, 256) == BUF_OK) {
+//      int i;
+//      for(i = 0; cmdBuf[i] != '\r'; ++i);
+//      CDC_Transmit_FS(cmdBuf, ++i);
+//    }
 
     /* USER CODE END WHILE */
 
@@ -343,6 +323,41 @@ static void MX_GPIO_Init(void)
 }
 
 /* USER CODE BEGIN 4 */
+
+static void User_LED_Init()
+{
+  ledTimer = HAL_GetTick();
+  ledDutyTimer = HAL_GetTick();
+}
+
+static void breatheTick()
+{
+  if (ledMode == 0) {
+    // имитация аппаратного счетчика
+    ++ledPwmCounter;
+    if (ledPwmCounter > 1023) {
+      ledPwmCounter = 0;
+    }
+
+    // изменение коэффициента заполнения Ш�?М раз в 1 мс
+    if (ledDutyTimer + 1 < HAL_GetTick()) {
+      ledDutyTimer = HAL_GetTick();
+      if ((ledDuty == 0) || (ledDuty == 1023)) {
+        dutyDirection = !dutyDirection;
+      }
+
+      ledDuty += (dutyDirection) ? 1 : -1;
+    }
+
+    // установка состояния выхода в зависимости от текущего состояния счетчика и коэффициента заполнения
+    HAL_GPIO_WritePin(USER_LED_GPIO_Port, USER_LED_Pin, (ledPwmCounter < ledDuty) ? GPIO_PIN_RESET : GPIO_PIN_SET);
+  } else {
+    if (ledTimer + 500 < HAL_GetTick()){
+      HAL_GPIO_TogglePin(USER_LED_GPIO_Port, USER_LED_Pin);
+      ledTimer = HAL_GetTick();
+    }
+  }
+}
 
 /* USER CODE END 4 */
 
