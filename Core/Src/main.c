@@ -17,12 +17,15 @@
   */
 /* USER CODE END Header */
 /* Includes ------------------------------------------------------------------*/
+#include "Button.h"
 #include "main.h"
 #include "usb/usb_device.h"
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
+
 #include "usb/usbd_cdc_if.h"
+
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -46,6 +49,8 @@
 RTC_HandleTypeDef hrtc;
 
 SPI_HandleTypeDef hspi1;
+
+Button_TypeDef user_btn;
 
 /* USER CODE BEGIN PV */
 
@@ -96,29 +101,13 @@ int main(void)
   MX_RTC_Init();
   MX_SPI1_Init();
   MX_USB_DEVICE_Init();
+
   /* USER CODE BEGIN 2 */
 
-//  __HAL_RCC_GPIOA_CLK_ENABLE();
-//  __HAL_RCC_GPIOC_CLK_ENABLE();
-//
-//  GPIO_InitTypeDef initLed;
-//  initLed.Mode = GPIO_MODE_OUTPUT_OD;
-//  initLed.Pin = GPIO_PIN_13;
-//  initLed.Pull = GPIO_NOPULL;
-//  initLed.Speed = GPIO_SPEED_FREQ_HIGH;
-//  HAL_GPIO_Init(GPIOC, &initLed);
-//
-//  GPIO_InitTypeDef initButton;
-//  initButton.Mode = GPIO_MODE_INPUT;
-//  initButton.Pin = GPIO_PIN_0;
-//  initButton.Pull = GPIO_PULLUP;
-//  initButton.Speed = GPIO_SPEED_FREQ_HIGH;
-//  HAL_GPIO_Init(GPIOA, &initButton);
+  Btn_Init(&user_btn, USER_BTN_GPIO_Port, USER_BTN_Pin, GPIO_PIN_RESET);
 
   // Initialize button timers
-  uint32_t btn1Timer = HAL_GetTick();
   uint32_t ledTimer = HAL_GetTick();
-  uint32_t sendTimer = HAL_GetTick();
   uint32_t ledDuty = 512;
   uint32_t ledPwmCounter = 0U;
   uint32_t ledDutyTimer = HAL_GetTick();;
@@ -131,61 +120,42 @@ int main(void)
   /* USER CODE BEGIN WHILE */
   while (1)
   {
-	static int buttonPressed = GPIO_PIN_RESET;
+    if (Btn_Check(&user_btn)) {
+      ledMode = !ledMode;
+    }
 
-	// обработка нажатий кнопки + подавление дребезга
-	if ((btn1Timer + BTN_DEBOUNCE_TIME) <= HAL_GetTick()) {
-	  int current_state = HAL_GPIO_ReadPin(GPIOA, GPIO_PIN_0);
+    if (ledMode == 0) {
+      // имитация аппаратного счетчика
+      ++ledPwmCounter;
+      if (ledPwmCounter > 1023) {
+        ledPwmCounter = 0;
+      }
 
-	  if (current_state != buttonPressed) {
-	    buttonPressed = current_state;
-	    btn1Timer = HAL_GetTick();
+      // изменение коэффициента заполнения Ш�?М раз в 1 мс
+      if (ledDutyTimer + 1 < HAL_GetTick()) {
+        ledDutyTimer = HAL_GetTick();
+        if ((ledDuty == 0) || (ledDuty == 1023)) {
+          dutyDirection = !dutyDirection;
+        }
 
-	    if (current_state == GPIO_PIN_RESET) {
-	    	ledMode = !ledMode;
-	    }
-	  }
-	}
+        ledDuty += (dutyDirection) ? 1 : -1;
+      }
 
-	if (ledMode == 0) {
-		// имитация аппаратного счетчика
-		++ledPwmCounter;
-		if (ledPwmCounter > 1023) {
-			ledPwmCounter = 0;
-		}
+      // установка состояния выхода в зависимости от текущего состояния счетчика и коэффициента заполнения
+      HAL_GPIO_WritePin(GPIOC, GPIO_PIN_13, (ledPwmCounter < ledDuty) ? GPIO_PIN_RESET : GPIO_PIN_SET);
+    } else {
+      if (ledTimer + 500 < HAL_GetTick()){
+        HAL_GPIO_TogglePin(GPIOC, GPIO_PIN_13);
+        ledTimer = HAL_GetTick();
+      }
+    }
 
-		// изменение коэффициента заполнения Ш�?М раз в 1 мс
-		if (ledDutyTimer + 1 < HAL_GetTick()) {
-			ledDutyTimer = HAL_GetTick();
-			if ((ledDuty == 0) || (ledDuty == 1023)) {
-				dutyDirection = !dutyDirection;
-			}
-
-			ledDuty += (dutyDirection) ? 1 : -1;
-		}
-
-		// установка состояния выхода в зависимости от текущего состояния счетчика и коэффициента заполнения
-		HAL_GPIO_WritePin(GPIOC, GPIO_PIN_13, (ledPwmCounter < ledDuty) ? GPIO_PIN_RESET : GPIO_PIN_SET);
-	} else {
-		if (ledTimer + 500 < HAL_GetTick()){
-			HAL_GPIO_TogglePin(GPIOC, GPIO_PIN_13);
-			ledTimer = HAL_GetTick();
-		}
-	}
-
-	if (sendTimer + 1000 < HAL_GetTick()) {
-		sendTimer = HAL_GetTick();
-
-//		uint8_t msg[] = "Hi!\n";
-//		CDC_Transmit_FS(msg, 5);
-	}
-
-	uint8_t cmdBuf[256];
-	if (Com_Read_Msg(cmdBuf, 256) == BUF_OK) {
-		int i;
-		for(i = 0; cmdBuf[i] != '\r'; ++i);
-		CDC_Transmit_FS(cmdBuf, ++i);
-	}
+    uint8_t cmdBuf[256];
+    if (Com_Read_Msg(cmdBuf, 256) == BUF_OK) {
+      int i;
+      for(i = 0; cmdBuf[i] != '\r'; ++i);
+      CDC_Transmit_FS(cmdBuf, ++i);
+    }
 
     /* USER CODE END WHILE */
 
