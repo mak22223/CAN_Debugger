@@ -8,15 +8,25 @@
 #ifndef INC_PASSTHRU_PASSTHRU_IF_H_
 #define INC_PASSTHRU_PASSTHRU_IF_H_
 
+/*
+ * Restrictions:
+ * - Cannot receive filter parameters bigger than 64 bytes
+ * - Without EXTENDED_J2534_SUPPORT define IOCTL FAST_INIT cannot be supported
+ */
+
 /* ---------------- PassThruInterface includes ------------------- */
 
 #include "stdint.h"
 
 
+#define MAX_CONFIG_PARAMS 15
+#define MAX_BYTES_SARRAY MAX_CONFIG_PARAMS * 2 * sizeof(uint32_t)
+
 /* ------------- PassThruInterface enums declaration ------------------- */
 
 typedef enum {
-  CONNECT = 0U,
+  NO_COMMAND = 0U,
+  CONNECT,
   DISCONNECT,
   READ_MSGS,
   WRITE_MSGS,
@@ -29,6 +39,22 @@ typedef enum {
   GET_LAST_ERROR,
   IOCTL
 } PassThruCommand;
+
+typedef enum {
+  GET_CONFIG = 0x1U,
+  SET_CONFIG = 0x2U,
+  READ_VBATT = 0x3U,
+  FIVE_BAUD_INIT = 0x4U,
+  FAST_INIT = 0x5U,
+  CLEAR_TX_BUFFER = 0x7U,
+  CLEAR_RX_BUFFER = 0x8U,
+  CLEAR_PERIODIC_MSGS = 0x9U,
+  CLEAR_MSG_FILTERS = 0xAU,
+  CLEAR_FUNCT_MSG_LOOKUP_TABLE = 0xBU,
+  ADD_TO_FUNCT_MSG_LOOKUP_TABLE = 0xCU,
+  DELETE_FROM_FUNCT_MSG_LOOKUP_TABLE = 0xDU,
+  READ_PROG_VOLTAGE = 0xEU
+} PassThruIoctlId;
 
 typedef enum {
   STATUS_NOERROR = 0U,
@@ -62,88 +88,10 @@ typedef enum {
 
 /* ------------- PassThruInterface structs declaration ------------------- */
 
-typedef union {
-  struct {
-
-  } Connect;
-  struct  {
-
-  } Disconnect;
-  struct  {
-
-  } ReadMsgs;
-  struct {
-
-  } WriteMsgs;
-  struct {
-
-  } StartPeriodicMsg;
-  struct {
-
-  } StopPeriodicMsg;
-  struct {
-
-  } StartMsgFilter;
-  struct {
-
-  } StopMsgFilter;
-  struct {
-
-  } SetProgrammingVoltage;
-  struct {
-
-  } ReadVersion;
-  struct {
-
-  } GetLastVersion;
-  struct {
-
-  } IOCTL;
-} PassThruParams;
-
 typedef struct {
-  uint32_t errorCode;
-
-  union {
-    struct {
-
-    } Connect;
-    struct {
-
-    } Disconnect;
-    struct {
-
-    } ReadMsgs;
-    struct {
-
-    } WriteMsgs;
-    struct {
-
-    } StartPeriodicMsg;
-    struct {
-
-    } StopPeriodicMsg;
-    struct {
-
-    } StartMsgFilter;
-    struct {
-
-    } StopMsgFilter;
-    struct {
-
-    } SetProgrammingVoltage;
-    struct {
-
-    } ReadVersion;
-    struct {
-
-    } GetLastVersion;
-    struct {
-
-    } IOCTL;
-  };
-
-} PassThruAnswer;
+  uint32_t parameter;
+  uint32_t value;
+} PassThruSConfig;
 
 typedef struct {
   uint32_t ProtocolID;
@@ -154,6 +102,155 @@ typedef struct {
   uint32_t ExtraDataIndex;
   uint8_t Data[4128];
 } PassThruMessage;
+
+/// Shortened structure to reduce memory usage
+typedef struct {
+  uint32_t ProtocolID;
+  uint32_t RxStatus;
+  uint32_t TxFlags;
+  uint32_t Timestamp;
+  uint32_t DataSize;
+  uint32_t ExtraDataIndex;
+  uint8_t Data[64];
+} PassThruMessageFilter;
+
+typedef union {
+  struct SCONFIG_LIST {
+    uint32_t numOfParams;
+    PassThruSConfig params[MAX_CONFIG_PARAMS * 2];
+  } sConfigList;
+
+  struct SBYTE_ARRAY {
+    uint32_t numOfBytes;
+    uint8_t bytes[MAX_BYTES_SARRAY];
+  } sByteArray;
+
+#ifdef EXTENDED_J2534_SUPPORT
+  PassThruMessage msg;
+#endif
+} PassThruIoctl;
+
+typedef union {
+  struct {
+    uint32_t protocolId;
+    uint32_t flags;
+  } Connect;
+
+  struct  {
+    uint32_t channelId;
+  } Disconnect;
+
+  struct  {
+    uint32_t channelId;
+    uint32_t numMsgs;
+    uint32_t timeout;
+  } ReadMsgs;
+
+  struct {
+    uint32_t channelId;
+    uint32_t timeout;
+    PassThruMessage msg;
+  } WriteMsgs;
+
+  struct {
+    uint32_t channelId;
+    uint32_t interval;
+    PassThruMessage msg;
+  } StartPeriodicMsg;
+
+  struct {
+    uint32_t channelId;
+    uint32_t msgId;
+  } StopPeriodicMsg;
+
+  struct {
+    uint32_t channelId;
+    uint32_t filterType;
+    PassThruMessageFilter mask;
+    PassThruMessageFilter pattern;
+    PassThruMessageFilter flowControl;
+  } StartMsgFilter;
+
+  struct {
+    uint32_t channelId;
+    uint32_t msgId;
+  } StopMsgFilter;
+
+  struct {
+    uint32_t pinNumber;
+    uint32_t voltage;
+  } SetProgrammingVoltage;
+
+  struct {
+
+  } ReadVersion;
+
+  struct {
+
+  } GetLastError;
+
+  struct {
+    uint32_t channelId;
+    uint32_t ioctlId;
+    PassThruIoctl ioctl;
+  } IOCTL;
+} PassThruParams;
+
+typedef struct {
+  uint32_t errorCode;
+
+  union {
+    struct {
+      uint32_t channelId;
+    } Connect;
+
+    struct {
+
+    } Disconnect;
+
+    struct {
+      PassThruMessage msg;
+    } ReadMsgs;
+
+    struct {
+
+    } WriteMsgs;
+
+    struct {
+      uint32_t msgId;
+    } StartPeriodicMsg;
+
+    struct {
+
+    } StopPeriodicMsg;
+
+    struct {
+      uint32_t msgId;
+    } StartMsgFilter;
+
+    struct {
+
+    } StopMsgFilter;
+
+    struct {
+
+    } SetProgrammingVoltage;
+
+    struct {
+      uint8_t *string;
+    } ReadVersion;
+
+    struct {
+      uint8_t *string;
+    } GetLastError;
+
+    struct {
+      uint32_t ioctlId;
+      void *ptr;
+    } IOCTL;
+  };
+
+} PassThruAnswer;
 
 typedef struct {
   uint8_t (* Init)(void);

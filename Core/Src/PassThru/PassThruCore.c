@@ -6,6 +6,7 @@
  */
 
 #include <PassThru/PassThruCore.h>
+#include "usb_vcp/VCPCommParser.h"
 
 
 

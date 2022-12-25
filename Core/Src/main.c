@@ -21,6 +21,7 @@
 #include <usb_vcp/usbd_cdc_if.h>
 #include "main.h"
 #include "Button.h"
+#include "usb_vcp/VCPCommParser.h"
 
 /* USER CODE END Includes */
 
@@ -125,6 +126,13 @@ int main(void)
     }
 
     breatheTick();
+
+    uint8_t cmd;
+    PassThruParams params;
+    PassThruComm_ItfTypeDef interface;
+    VCP_getInterface(&interface);
+
+    interface.ReceiveCmd(&cmd, &params);
 
 //    uint8_t command;
 //    CommandParametersStructTypeDef param;

@@ -53,6 +53,7 @@
 /* USER CODE BEGIN EXPORTED_DEFINES */
 
 #define COMMAND_BUF_SIZE 1024
+#define COMMAND_DELIMITER_SYMB '\r'
 
 /* USER CODE END EXPORTED_DEFINES */
 
@@ -120,7 +121,7 @@ uint8_t CDC_Transmit_FS(uint8_t* Buf, uint16_t Len);
 /* USER CODE BEGIN EXPORTED_FUNCTIONS */
 
 uint8_t Com_Msg_Available();
-uint8_t Com_Read_Msg(uint8_t *buf, uint16_t len);
+uint8_t Com_Read_Msg(uint8_t *buf, uint16_t len, uint16_t *msgLen);
 void Com_Buf_Reset();
 
 
