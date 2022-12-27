@@ -5,8 +5,8 @@
  *      Author: mak22
  */
 
-#ifndef INC_PASSTHRU_PASSTHRU_IF_H_
-#define INC_PASSTHRU_PASSTHRU_IF_H_
+#ifndef INC_PASSTHRU_PASSTHRU_DEF_H_
+#define INC_PASSTHRU_PASSTHRU_DEF_H_
 
 /*
  * Restrictions:
@@ -80,11 +80,6 @@ typedef enum {
   ERR_CHANNEL_IN_USE,
   ERR_MSG_PROTOCOL_ID
 } PassThruError;
-
-typedef enum {
-  IF_OK = 0U,
-  IF_ERROR
-} PassThruIfError;
 
 /* ------------- PassThruInterface structs declaration ------------------- */
 
@@ -252,11 +247,4 @@ typedef struct {
 
 } PassThruAnswer;
 
-typedef struct {
-  uint8_t (* Init)(void);
-  uint8_t (* DeInit)(void);
-  uint8_t (* ReceiveCmd)(uint8_t *cmd, PassThruParams *params);
-  uint8_t (* SendAnswer)(uint8_t *cmd, PassThruAnswer *ans);
-} PassThruComm_ItfTypeDef;
-
-#endif /* INC_PASSTHRU_PASSTHRU_IF_H_ */
+#endif /* INC_PASSTHRU_PASSTHRU_DEF_H_ */

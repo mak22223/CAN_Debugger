@@ -11,8 +11,9 @@
 
 /* ------------------ VCP command parser includes ----------------- */
 
+#include <PassThru/PassThruComm_if.h>
+
 #include "usb_vcp/usbd_cdc_if.h"
-#include "PassThru/PassThru_if.h"
 
 /* ------------------ VCP command parser defines ----------------- */
 

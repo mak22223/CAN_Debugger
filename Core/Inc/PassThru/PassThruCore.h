@@ -10,7 +10,8 @@
 
 /* ------------------ PassThru includes ------------------- */
 
-#include "PassThru_if.h"
+#include "PassThru/PassThru_def.h"
+#include "PassThru/PassThruComm_if.h"
 
 
 /* ------------- PassThru structs declaration ------------------- */
@@ -23,6 +24,7 @@
  * Init PassThruCore, set communication interface
  * @retval None
  */
-void PassThruInit(PassThruComm_ItfTypeDef *itf);
+void PassThru_init(PassThruComm_ItfTypeDef *itf);
+void PassThru_tick();
 
 #endif /* INC_PASSTHRU_PASSTHRUCORE_H_ */

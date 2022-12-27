@@ -21,6 +21,7 @@
 #include <usb_vcp/usbd_cdc_if.h>
 #include "main.h"
 #include "Button.h"
+#include "PassThru/PassThruCore.h"
 #include "usb_vcp/VCPCommParser.h"
 
 /* USER CODE END Includes */
@@ -126,24 +127,8 @@ int main(void)
     }
 
     breatheTick();
+    PassThru_tick();
 
-    uint8_t cmd;
-    PassThruParams params;
-    PassThruComm_ItfTypeDef interface;
-    VCP_getInterface(&interface);
-
-    interface.ReceiveCmd(&cmd, &params);
-
-//    uint8_t command;
-//    CommandParametersStructTypeDef param;
-//    command = some_command_processing_function(command, param);
-
-//    uint8_t cmdBuf[256];
-//    if (Com_Read_Msg(cmdBuf, 256) == BUF_OK) {
-//      int i;
-//      for(i = 0; cmdBuf[i] != '\r'; ++i);
-//      CDC_Transmit_FS(cmdBuf, ++i);
-//    }
 
     /* USER CODE END WHILE */
 

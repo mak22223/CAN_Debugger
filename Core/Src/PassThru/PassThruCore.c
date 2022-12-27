@@ -12,6 +12,12 @@
 
 /* ------------- PassThru functions definition ------------------- */
 
-void PassThruInit(PassThruComm_ItfTypeDef *itf) {
+void PassThruInit(PassThruComm_ItfTypeDef *itf)
+{
+
+}
+
+void PassThru_tick(void)
+{
 
 }
