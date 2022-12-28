@@ -8,23 +8,22 @@
 #ifndef INC_PASSTHRU_PASSTHRUCORE_H_
 #define INC_PASSTHRU_PASSTHRUCORE_H_
 
-/* ------------------ PassThru includes ------------------- */
+/* ------------------ PassThruCore includes ------------------- */
 
 #include "PassThru/PassThru_def.h"
 #include "PassThru/PassThruComm_if.h"
 
-
-/* ------------- PassThru structs declaration ------------------- */
-
+#include "stm32f4xx_hal.h"
 
 
-/* ------------- PassThru functions declaration ------------------- */
+/* ------------- PassThruCore struct declaration ------------------- */
 
-/*
- * Init PassThruCore, set communication interface
- * @retval None
- */
-void PassThru_init(PassThruComm_ItfTypeDef *itf);
-void PassThru_tick();
+
+
+/* ------------- PassThruCore function declaration ------------------- */
+
+
+void PassThru_init(SPI_HandleTypeDef* _hspi);
+void PassThru_tick(void);
 
 #endif /* INC_PASSTHRU_PASSTHRUCORE_H_ */

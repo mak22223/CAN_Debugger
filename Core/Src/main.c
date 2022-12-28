@@ -17,12 +17,14 @@
   */
 /* USER CODE END Header */
 /* Includes ------------------------------------------------------------------*/
-#include <usb_vcp/usb_device.h>
-#include <usb_vcp/usbd_cdc_if.h>
 #include "main.h"
+#include "usb_vcp/usb_device.h"
+
+/* Private includes ----------------------------------------------------------*/
+/* USER CODE BEGIN Includes */
+
 #include "Button.h"
 #include "PassThru/PassThruCore.h"
-#include "usb_vcp/VCPCommParser.h"
 
 /* USER CODE END Includes */
 
@@ -107,13 +109,13 @@ int main(void)
   MX_GPIO_Init();
   MX_RTC_Init();
   MX_SPI1_Init();
-  MX_USB_DEVICE_Init();  
+  MX_USB_DEVICE_Init();
   /* USER CODE BEGIN 2 */
 
   // Initialize device modules
+  PassThru_init(&hspi1);
   User_LED_Init();
   Btn_Init(&user_btn, USER_BTN_GPIO_Port, USER_BTN_Pin, GPIO_PIN_RESET);
-
 
 
   /* USER CODE END 2 */
@@ -128,7 +130,6 @@ int main(void)
 
     breatheTick();
     PassThru_tick();
-
 
     /* USER CODE END WHILE */
 
@@ -241,7 +242,7 @@ static void MX_SPI1_Init(void)
   hspi1.Init.CLKPolarity = SPI_POLARITY_LOW;
   hspi1.Init.CLKPhase = SPI_PHASE_1EDGE;
   hspi1.Init.NSS = SPI_NSS_SOFT;
-  hspi1.Init.BaudRatePrescaler = SPI_BAUDRATEPRESCALER_8;
+  hspi1.Init.BaudRatePrescaler = SPI_BAUDRATEPRESCALER_32;
   hspi1.Init.FirstBit = SPI_FIRSTBIT_MSB;
   hspi1.Init.TIMode = SPI_TIMODE_DISABLE;
   hspi1.Init.CRCCalculation = SPI_CRCCALCULATION_DISABLE;
@@ -275,7 +276,7 @@ static void MX_GPIO_Init(void)
   HAL_GPIO_WritePin(USER_LED_GPIO_Port, USER_LED_Pin, GPIO_PIN_SET);
 
   /*Configure GPIO pin Output Level */
-  HAL_GPIO_WritePin(GPIOA, CAN1_CS_Pin|CAN2_CS_Pin, GPIO_PIN_RESET);
+  HAL_GPIO_WritePin(GPIOA, CAN1_CS_Pin|CAN2_CS_Pin, GPIO_PIN_SET);
 
   /*Configure GPIO pin Output Level */
   HAL_GPIO_WritePin(ERROR_LED_GPIO_Port, ERROR_LED_Pin, GPIO_PIN_SET);

@@ -81,6 +81,20 @@ typedef enum {
   ERR_MSG_PROTOCOL_ID
 } PassThruError;
 
+typedef enum {
+  J1850VPW = 1U,
+  J1850PWM,
+  ISO9141,
+  ISO14230,
+  CAN,
+  ISO15765,
+  SCI_A_ENGINE,
+  SCI_A_TRANS,
+  SCI_B_ENGINE,
+  SCI_B_TRANS,
+  MS_CAN = 0x10000U
+} PassThruProtocolId;
+
 /* ------------- PassThruInterface structs declaration ------------------- */
 
 typedef struct {
