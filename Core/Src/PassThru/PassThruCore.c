@@ -16,17 +16,18 @@
 
 /* -------- PassThruСore private functions declarations ----------- */
 
-static PassThruError ConnectHandler(PassThruParams *params);
-static PassThruError DisconnectHandler(PassThruParams *params);
-static PassThruError ReadMsgsHandler(PassThruParams *params);
-static PassThruError WriteMsgsHandler(PassThruParams *params);
-static PassThruError StartPeriodicMsgsHandler(PassThruParams *params);
-static PassThruError StopPeriodicMsgsHandler(PassThruParams *params);
-static PassThruError StartMsgFilterHandler(PassThruParams *params);
-static PassThruError StopMsgFilterHandler(PassThruParams *params);
-static PassThruError SetProgrammingVoltageHandler(PassThruParams *params);
-static PassThruError GetLastErrorHandler(PassThruParams *params);
-static PassThruError IoctlHandler(PassThruParams *params);
+static PassThruError ConnectHandler(PassThruParams *params, PassThruAnswer *ans);
+static PassThruError DisconnectHandler(PassThruParams *params, PassThruAnswer *ans);
+static PassThruError ReadMsgsHandler(PassThruParams *params, PassThruAnswer *ans);
+static PassThruError WriteMsgsHandler(PassThruParams *params, PassThruAnswer *ans);
+static PassThruError StartPeriodicMsgsHandler(PassThruParams *params, PassThruAnswer *ans);
+static PassThruError StopPeriodicMsgsHandler(PassThruParams *params, PassThruAnswer *ans);
+static PassThruError StartMsgFilterHandler(PassThruParams *params, PassThruAnswer *ans);
+static PassThruError StopMsgFilterHandler(PassThruParams *params, PassThruAnswer *ans);
+static PassThruError SetProgrammingVoltageHandler(PassThruParams *params, PassThruAnswer *ans);
+static PassThruError ReadVersionHandler(PassThruParams *params, PassThruAnswer *ans);
+static PassThruError GetLastErrorHandler(PassThruParams *params, PassThruAnswer *ans);
+static PassThruError IoctlHandler(PassThruParams *params, PassThruAnswer *ans);
 
 
 /* ------------- PassThruСore private variables ------------------- */
@@ -43,6 +44,7 @@ CAN_MCP2515_TypeDef Can2;
 
 PassThruCommand command_id;
 PassThruParams param_buf;
+PassThruAnswer answer_buf;
 uint8_t *last_error_string;
 
 const uint8_t error_strings[1][1] = {
@@ -71,9 +73,9 @@ void PassThru_init(SPI_HandleTypeDef* _hspi)
   };
 
   CAN_MCP2515_InitTypeDef can2_init = {
-      _hspi,
-      CAN2_CS_GPIO_Port,
-      CAN2_CS_Pin
+    _hspi,
+    CAN2_CS_GPIO_Port,
+    CAN2_CS_Pin
   };
 
   periphs[0].itf.Init(&Can1, &can1_init);
@@ -87,6 +89,8 @@ void PassThru_init(SPI_HandleTypeDef* _hspi)
  */
 void PassThru_tick(void)
 {
+  PassThruError error = STATUS_NOERROR;
+
   if(comm_itf.ReceiveCmd(&command_id, &param_buf) == IF_OK) {
     switch (command_id) {
       case NO_COMMAND:
@@ -94,57 +98,148 @@ void PassThru_tick(void)
         break;
 
       case CONNECT:
-//        ConnectHandler(&param_buf);
+        error = ConnectHandler(&param_buf, &answer_buf);
         break;
 
       case DISCONNECT:
-
+        error = DisconnectHandler(&param_buf, &answer_buf);
         break;
 
       case READ_MSGS:
-
+        error = ReadMsgsHandler(&param_buf, &answer_buf);
         break;
 
       case WRITE_MSGS:
-
+        error = WriteMsgsHandler(&param_buf, &answer_buf);
         break;
 
       case START_PERIODIC_MSG:
-
+        error = StartPeriodicMsgsHandler(&param_buf, &answer_buf);
         break;
 
       case STOP_PERIODIC_MSG:
-
+        error = StopPeriodicMsgsHandler(&param_buf, &answer_buf);
         break;
 
       case START_MSG_FILTER:
-
+        error = StartMsgFilterHandler(&param_buf, &answer_buf);
         break;
 
       case STOP_MSG_FILTER:
-
+        error = StopMsgFilterHandler(&param_buf, &answer_buf);
         break;
 
       case SET_PROGRAMMING_VOLTAGE:
-
+        error = SetProgrammingVoltageHandler(&param_buf, &answer_buf);
         break;
 
       case READ_VERSION:
-
+        error = ReadVersionHandler(&param_buf, &answer_buf);
         break;
 
       case GET_LAST_ERROR:
-
+        error = GetLastErrorHandler(&param_buf, &answer_buf);
         break;
 
       case IOCTL:
-
+        error = IoctlHandler(&param_buf, &answer_buf);
         break;
 
       default:
         Error_Handler();
         break;
     }
-
   }
+
+  if (command_id != NO_COMMAND) {
+    comm_itf.SendAnswer(&command_id, &answer_buf);
+  }
+}
+
+static PassThruError ConnectHandler(PassThruParams *params, PassThruAnswer *ans)
+{
+  /// TODO: придумать не жесткую схему определения интерфейса
+  PassThruError status = STATUS_NOERROR;
+
+  switch (params->Connect.protocolId) {
+    case CAN:
+      ans->Connect.channelId = 0;
+      status = periphs[0].itf.Connect(periphs[0].periph, params);
+      break;
+
+    case MS_CAN:
+      ans->Connect.channelId = 1;
+      status = periphs[1].itf.Connect(periphs[1].periph, params);
+      break;
+
+    default:
+      status = ERR_NOT_SUPPORTED;
+      break;
+  }
+
+  ans->errorCode = status;
+  return status;
+}
+
+static PassThruError DisconnectHandler(PassThruParams *params, PassThruAnswer *ans)
+{
+  if (params->Disconnect.channelId >= PERIPH_COUNT) {
+    ans->errorCode = ERR_INVALID_CHANNEL_ID;
+    return ERR_INVALID_CHANNEL_ID;
+  }
+
+  ans->errorCode = periphs[params->Disconnect.channelId].itf
+      .Disconnect(periphs[params->Disconnect.channelId].periph);
+
+  return ans->errorCode;
+}
+
+static PassThruError ReadMsgsHandler(PassThruParams *params, PassThruAnswer *ans)
+{
+
+}
+
+static PassThruError WriteMsgsHandler(PassThruParams *params, PassThruAnswer *ans)
+{
+
+}
+
+static PassThruError StartPeriodicMsgsHandler(PassThruParams *params, PassThruAnswer *ans)
+{
+
+}
+
+static PassThruError StopPeriodicMsgsHandler(PassThruParams *params, PassThruAnswer *ans)
+{
+
+}
+
+static PassThruError StartMsgFilterHandler(PassThruParams *params, PassThruAnswer *ans)
+{
+
+}
+
+static PassThruError StopMsgFilterHandler(PassThruParams *params, PassThruAnswer *ans)
+{
+
+}
+
+static PassThruError SetProgrammingVoltageHandler(PassThruParams *params, PassThruAnswer *ans)
+{
+
+}
+
+static PassThruError ReadVersionHandler(PassThruParams *params, PassThruAnswer *ans)
+{
+
+}
+
+static PassThruError GetLastErrorHandler(PassThruParams *params, PassThruAnswer *ans)
+{
+
+}
+
+static PassThruError IoctlHandler(PassThruParams *params, PassThruAnswer *ans)
+{
+
 }

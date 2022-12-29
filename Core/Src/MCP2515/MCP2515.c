@@ -9,13 +9,76 @@
 
 /* ------------- MCP2515 define declaration -------------- */
 
-#define RXBNCTRL_RXM_MASK (0x60UL)
-#define RXBNCTRL_RXM (5)
+/*
+ * Register masks and bit offsets
+ */
+
+#define RXBNCTRL_RXM_MASK   (0x60U)
+#define RXBNCTRL_RXM        (5)
+#define RXBNCTRL_BUKT_MASK  (0x4U)
+#define RXBNCTRL_BUKT       (2)
+
+#define CNF3_SOF_MASK       (0x80U)
+#define CNF3_SOF            (7)
+#define CNF3_WAKFIL_MASK    (0x40U)
+#define CNF3_WAKFIL         (6)
+#define CNF3_PHSEG2_MASK    (0x7U)
+#define CNF3_PHSEG2         (0)
+
+#define CNF2_BLTMODE_MASK   (0x80U)
+#define CNF2_BLTMODE        (7)
+#define CNF2_SAM_MASK       (0x40U)
+#define CNF2_SAM            (6)
+#define CNF2_PHSEG1_MASK    (0x38U)
+#define CNF2_PHSEG1         (3)
+#define CNF2_PRSEG_MASK     (0x7U)
+#define CNF2_PRSEG          (0)
+
+#define CNF1_SJW_MASK       (0xC0U)
+#define CNF1_SJW            (6)
+#define CNF1_BRP_MASK       (0x3FU)
+#define CNF1_BRP            (0)
+
+#define CANCTRL_REQOP_MASK  (0xE0U)
+#define CANCTRL_REQOP       (5)
+
+#define CANSTAT_OPMOD_MASK  (0xE0U)
+#define CANSTAT_OPMOD       (5)
+#define CANSTAT_ICOD_MASK   (0x0EU)
+#define CANSTAT_ICOD        (1)
+
+/*
+ * CAN speed timings
+ */
+
+#define MCP_TIMING_SJW      (0U)
+#define MCP_TIMING_SAM      (0U)
+#define MCP_TIMING_BTLMODE  (1U)
+
+#define MCP_500KBPS_BRP     (0U)
+#define MCP_500KBPS_PRSEG   (1U)
+#define MCP_500KBPS_PHSEG1  (1U)
+#define MCP_500KBPS_PHSEG2  (2U)
+#define MCP_500KBPS_SAM     (0U)
+
+#define MCP_250KBPS_BRP     (0U)
+#define MCP_250KBPS_PRSEG   (4U)
+#define MCP_250KBPS_PHSEG1  (4U)
+#define MCP_250KBPS_PHSEG2  (4U)
+#define MCP_250KBPS_SAM     (1U)
+
+#define MCP_125KBPS_BRP     (1U)
+#define MCP_125KBPS_PRSEG   (1U)
+#define MCP_125KBPS_PHSEG1  (6U)
+#define MCP_125KBPS_PHSEG2  (5U)
+#define MCP_125KBPS_SAM     (1U)
 
 /* ----------- MCP2515 private enum declaration ------------ */
 
 typedef enum {
   MCP_OK = 0U,
+  MCP_ERROR,
+  MCP_INITERROR,
   MCP_TIMEOUT
 } McpError;
 
@@ -30,6 +93,20 @@ typedef enum {
   MCP_RX_STATUS      = 0xB0,
   MCP_BIT_MODIFY     = 0x05
 } McpCommand;
+
+typedef enum {
+  MCP_500KBPS,
+  MCP_250KBPS,
+  MCP_125KBPS
+} McpSpeed;
+
+typedef enum {
+  MCP_NORMAL = 0U,
+  MCP_SLEEP,
+  MCP_LOOPBACK,
+  MCP_LISTENONLY,
+  MCP_CONFIGURATION
+} McpMode;
 
 typedef enum {
   MCP_RXF0SIDH = 0x00,
@@ -116,7 +193,7 @@ typedef enum {
 
 /* -------- MCP2515 private function declarations ----------- */
 
-static PassThruError init(void *_this, void *_params);
+static PassThruError construct(void *_this, void *_params);
 static PassThruError connect(void *_this, PassThruParams *params);
 static PassThruError disconnect(void *_this);
 static PassThruError sendMsg(void *_this, PassThruParams *params);
@@ -128,6 +205,7 @@ static PassThruError handleIoctl(void *_this, PassThruParams *params);
 static uint8_t isConnected(void *this);
 static uint8_t isCapableOf(void *this, PassThruProtocolId protocol);
 
+static uint8_t init(CAN_MCP2515_TypeDef *this);
 static void startSPI(CAN_MCP2515_TypeDef *this);
 static void stopSPI(CAN_MCP2515_TypeDef *this);
 static void reset(CAN_MCP2515_TypeDef *this);
@@ -135,6 +213,9 @@ static void readRegister(CAN_MCP2515_TypeDef *this, McpRegister reg, uint8_t *bu
 static void writeRegister(CAN_MCP2515_TypeDef *this, McpRegister reg, uint8_t val);
 static void writeRegisters(CAN_MCP2515_TypeDef *this, McpRegister reg, uint8_t *vals, uint8_t count);
 static void bitSetRegister(CAN_MCP2515_TypeDef *this, McpRegister reg, uint8_t mask, uint8_t val);
+static void setSpeed(CAN_MCP2515_TypeDef *this, McpSpeed speed);
+static McpMode getMode(CAN_MCP2515_TypeDef *this);
+static McpMode setMode(CAN_MCP2515_TypeDef *this, McpMode mode);
 
 
 /* ---------- MCP2515 public function definitions ----------- */
@@ -142,7 +223,7 @@ static void bitSetRegister(CAN_MCP2515_TypeDef *this, McpRegister reg, uint8_t m
 void MCP2515_getInterface(PassThruPeriph_ItfTypeDef *itf)
 {
   PassThruPeriph_ItfTypeDef _itf = {
-    init,
+    construct,
     connect,
     disconnect,
     receiveMsg,
@@ -165,7 +246,7 @@ static void startSPI(CAN_MCP2515_TypeDef *this)
 
 static void stopSPI(CAN_MCP2515_TypeDef *this)
 {
-  HAL_GPIO_WritePin(this->GPIO, this->GPIO_CS_Pin, GPIO_PIN_RESET);
+  HAL_GPIO_WritePin(this->GPIO, this->GPIO_CS_Pin, GPIO_PIN_SET);
 }
 
 static void reset(CAN_MCP2515_TypeDef *this)
@@ -210,19 +291,58 @@ static void bitSetRegister(CAN_MCP2515_TypeDef *this, McpRegister reg, uint8_t m
   stopSPI(this);
 }
 
-
-static PassThruError init(void *_this, void *_params)
+static void setSpeed(CAN_MCP2515_TypeDef *this, McpSpeed speed)
 {
-  CAN_MCP2515_TypeDef *this = _this;
-  CAN_MCP2515_InitTypeDef *init = _params;
+  uint8_t sendBuf[5] = {
+    MCP_WRITE,
+    MCP_CNF3,
+  };
 
-  this->hspi = init->hspi;
-  this->GPIO = init->GPIO;
-  this->GPIO_CS_Pin = init->GPIO_Pin;
+  switch (speed) {
+    case MCP_500KBPS:
+      sendBuf[2] = 0 << CNF3_SOF | 0 << CNF3_WAKFIL | MCP_500KBPS_PHSEG2 << CNF3_PHSEG2;  // CNF3
+      sendBuf[3] =                                                                        // CNF2
+          1 << CNF2_BLTMODE |
+          MCP_500KBPS_SAM << CNF2_SAM |
+          MCP_500KBPS_PHSEG1 << CNF2_PHSEG1 |
+          MCP_500KBPS_PRSEG << CNF2_PRSEG;
+      sendBuf[4] = 0 << CNF1_SJW | MCP_500KBPS_BRP << CNF1_BRP;                           // CNF1
+      break;
 
-  this->connected = 0;
+    case MCP_250KBPS:
+      sendBuf[2] = 0 << CNF3_SOF | 0 << CNF3_WAKFIL | MCP_250KBPS_PHSEG2 << CNF3_PHSEG2;  // CNF3
+      sendBuf[3] =                                                                        // CNF2
+          1 << CNF2_BLTMODE |
+          MCP_250KBPS_SAM << CNF2_SAM |
+          MCP_250KBPS_PHSEG1 << CNF2_PHSEG1 |
+          MCP_250KBPS_PRSEG << CNF2_PRSEG;
+      sendBuf[4] = 0 << CNF1_SJW | MCP_250KBPS_BRP << CNF1_BRP;                           // CNF1
+      break;
 
+    case MCP_125KBPS:
+      sendBuf[2] = 0 << CNF3_SOF | 0 << CNF3_WAKFIL | MCP_125KBPS_PHSEG2 << CNF3_PHSEG2;  // CNF3
+      sendBuf[3] =                                                                        // CNF2
+          1 << CNF2_BLTMODE |
+          MCP_125KBPS_SAM << CNF2_SAM |
+          MCP_125KBPS_PHSEG1 << CNF2_PHSEG1 |
+          MCP_125KBPS_PRSEG << CNF2_PRSEG;
+      sendBuf[4] = 0 << CNF1_SJW | MCP_125KBPS_BRP << CNF1_BRP;                           // CNF1
+      break;
+
+    default:
+      Error_Handler();
+      break;
+  }
+
+  startSPI(this);
+  HAL_SPI_Transmit(this->hspi, sendBuf, sizeof(sendBuf), 1);
+  stopSPI(this);
+}
+
+static uint8_t init(CAN_MCP2515_TypeDef *this)
+{
   // Controller reset
+  stopSPI(this);
   reset(this);
   HAL_Delay(2);
 
@@ -232,26 +352,99 @@ static PassThruError init(void *_this, void *_params)
 
   if (readBuf[0] != 0x87) {
     Error_Handler();
-    return ERR_FAILED;
+    return MCP_INITERROR;
   }
 
-  bitSetRegister(this, MCP_RXB0CTRL, RXBNCTRL_RXM_MASK, 0b11 << RXBNCTRL_RXM);
+  // Allow to receive all messages, regardless filters, and rollover
+  bitSetRegister(this, MCP_RXB0CTRL, RXBNCTRL_RXM_MASK | RXBNCTRL_BUKT_MASK,
+      (0b11 << RXBNCTRL_RXM) | (1 << RXBNCTRL_BUKT));
+  bitSetRegister(this, MCP_RXB1CTRL, RXBNCTRL_RXM_MASK, 0b11 << RXBNCTRL_RXM);
 
-  uint8_t result[1];
-  readRegister(this, MCP_RXB0CTRL, result);
-  readRegister(this, MCP_CANCTRL, result);
+  setSpeed(this, MCP_500KBPS);
+  getMode(this);
 
+  return MCP_OK;
+}
 
+static McpMode getMode(CAN_MCP2515_TypeDef *this)
+{
+  uint8_t result;
+  readRegister(this, MCP_CANSTAT, &result);
+  result = (result & CANSTAT_OPMOD_MASK) >> CANSTAT_OPMOD;
+
+  switch (result) {
+    case 0x0:
+      return MCP_NORMAL;
+
+    case 0x1:
+      return MCP_SLEEP;
+
+    case 0x2:
+      return MCP_LOOPBACK;
+
+    case 0x3:
+      return MCP_LISTENONLY;
+
+    case 0x4:
+      return MCP_CONFIGURATION;
+
+    default:
+      Error_Handler();
+      break;
+  }
+  return -1;
+}
+
+static McpMode setMode(CAN_MCP2515_TypeDef *this, McpMode mode)
+{
+  bitSetRegister(this, MCP_CANCTRL, CANCTRL_REQOP_MASK, mode << CANCTRL_REQOP);
+
+  /// TODO: добавить проверку перехода в новый режим и таймаут. Пункт 10.0 даташита
+
+  return mode;
+}
+
+static PassThruError construct(void *_this, void *_params)
+{
+  CAN_MCP2515_TypeDef *this = _this;
+  CAN_MCP2515_InitTypeDef *params = _params;
+
+  this->hspi = params->hspi;
+  this->GPIO = params->GPIO;
+  this->GPIO_CS_Pin = params->GPIO_Pin;
+
+  this->connected = 0;
+
+  return (init(this) == MCP_OK) ? STATUS_NOERROR : ERR_FAILED;
 }
 
 static PassThruError connect(void *_this, PassThruParams *params)
 {
+  CAN_MCP2515_TypeDef *this = _this;
 
+  if (this->connected) {
+    return ERR_CHANNEL_IN_USE;
+  }
+
+  /// TODO: корректная обработка флагов
+  if (params->Connect.flags > 0) {
+    return ERR_NOT_SUPPORTED;
+  }
+
+  init(this);
+
+  setMode(this, MCP_NORMAL);
+
+  this->connected = 1;
 }
 
 static PassThruError disconnect(void *_this)
 {
+  CAN_MCP2515_TypeDef *this = _this;
 
+  setMode(this, MCP_CONFIGURATION);
+
+  this->connected = 0;
 }
 
 static PassThruError sendMsg(void *_this, PassThruParams *params)
@@ -286,5 +479,6 @@ static uint8_t isConnected(void *this)
 
 static uint8_t isCapableOf(void *this, PassThruProtocolId protocol)
 {
-
+  /// TODO: удалить метод
+  return 0;
 }
