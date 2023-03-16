@@ -53,6 +53,22 @@ const uint8_t error_strings[1][1] = {
 
 /* ------------- PassThru functions definition ------------------- */
 
+void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin)
+{
+  switch (GPIO_Pin) {
+    case CAN1_INT_Pin:
+      periphs[0].itf.interruptHandler(periphs[0].periph);
+      break;
+
+    case CAN2_INT_Pin:
+      periphs[1].itf.interruptHandler(periphs[1].periph);
+      break;
+
+    default:
+      break;
+  }
+}
+
 /*
  * Init PassThruCore, set communication interface
  * @retval None
@@ -81,6 +97,8 @@ void PassThru_init(SPI_HandleTypeDef* _hspi)
   periphs[0].itf.Init(&Can1, &can1_init);
   periphs[1].itf.Init(&Can2, &can2_init);
 
+  HAL_NVIC_EnableIRQ(CAN1_INT_EXTI_IRQn);
+  HAL_NVIC_EnableIRQ(CAN2_INT_EXTI_IRQn);
 }
 
 /*

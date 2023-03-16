@@ -20,6 +20,8 @@ typedef struct {
   PassThruError (* ResetFilter)(void *this, PassThruParams *params);
   PassThruError (* HandleIoctl)(void *this, PassThruParams *params);
 
+  void (* interruptHandler)(void *this);
+
   uint8_t (* isConnected)(void *this);
   uint8_t (* isCapableOf)(void *this, PassThruProtocolId protocol);
 } PassThruPeriph_ItfTypeDef;

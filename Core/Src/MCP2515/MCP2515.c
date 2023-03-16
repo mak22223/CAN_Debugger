@@ -202,6 +202,8 @@ static PassThruError setFilter(void *_this, PassThruParams *params);
 static PassThruError resetFilter(void *_this, PassThruParams *params);
 static PassThruError handleIoctl(void *_this, PassThruParams *params);
 
+static void interruptHandler(void *_this);
+
 static uint8_t isConnected(void *this);
 static uint8_t isCapableOf(void *this, PassThruProtocolId protocol);
 
@@ -216,6 +218,7 @@ static void bitSetRegister(CAN_MCP2515_TypeDef *this, McpRegister reg, uint8_t m
 static void setSpeed(CAN_MCP2515_TypeDef *this, McpSpeed speed);
 static McpMode getMode(CAN_MCP2515_TypeDef *this);
 static McpMode setMode(CAN_MCP2515_TypeDef *this, McpMode mode);
+static void prepareId(PassThruMessage *msg, uint8_t *buf);
 
 
 /* ---------- MCP2515 public function definitions ----------- */
@@ -231,6 +234,7 @@ void MCP2515_getInterface(PassThruPeriph_ItfTypeDef *itf)
     setFilter,
     resetFilter,
     handleIoctl,
+    interruptHandler,
     isConnected,
     isCapableOf
   };
@@ -361,7 +365,6 @@ static uint8_t init(CAN_MCP2515_TypeDef *this)
   bitSetRegister(this, MCP_RXB1CTRL, RXBNCTRL_RXM_MASK, 0b11 << RXBNCTRL_RXM);
 
   setSpeed(this, MCP_500KBPS);
-  getMode(this);
 
   return MCP_OK;
 }
@@ -404,6 +407,14 @@ static McpMode setMode(CAN_MCP2515_TypeDef *this, McpMode mode)
   return mode;
 }
 
+static void interruptHandler(void *_this)
+{
+  CAN_MCP2515_TypeDef *this = _this;
+
+  uint8_t result[1];
+  readRegister(this, MCP_CANINTF, result);
+}
+
 static PassThruError construct(void *_this, void *_params)
 {
   CAN_MCP2515_TypeDef *this = _this;
@@ -436,6 +447,7 @@ static PassThruError connect(void *_this, PassThruParams *params)
   setMode(this, MCP_NORMAL);
 
   this->connected = 1;
+  return STATUS_NOERROR;
 }
 
 static PassThruError disconnect(void *_this)
@@ -445,6 +457,7 @@ static PassThruError disconnect(void *_this)
   setMode(this, MCP_CONFIGURATION);
 
   this->connected = 0;
+  return STATUS_NOERROR;
 }
 
 static PassThruError sendMsg(void *_this, PassThruParams *params)
@@ -481,4 +494,10 @@ static uint8_t isCapableOf(void *this, PassThruProtocolId protocol)
 {
   /// TODO: удалить метод
   return 0;
+}
+
+/// TODO: сделать универсальным для расширенных и стандартных кадров
+static void prepareId(PassThruMessage *msg, uint8_t *buf)
+{
+
 }

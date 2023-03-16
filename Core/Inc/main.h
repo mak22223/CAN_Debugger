@@ -67,8 +67,10 @@ void Error_Handler(void);
 #define CAN2_CS_GPIO_Port GPIOA
 #define CAN1_INT_Pin GPIO_PIN_0
 #define CAN1_INT_GPIO_Port GPIOB
+#define CAN1_INT_EXTI_IRQn EXTI0_IRQn
 #define CAN2_INT_Pin GPIO_PIN_1
 #define CAN2_INT_GPIO_Port GPIOB
+#define CAN2_INT_EXTI_IRQn EXTI1_IRQn
 #define ERROR_LED_Pin GPIO_PIN_7
 #define ERROR_LED_GPIO_Port GPIOB
 /* USER CODE BEGIN Private defines */

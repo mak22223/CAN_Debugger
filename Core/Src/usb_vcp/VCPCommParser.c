@@ -25,7 +25,7 @@ typedef enum {
 #define MAX_COMMAND_LEN 18
 
 
-char commands[COMMAND_COUNT][MAX_COMMAND_LEN] = {
+const char commands[COMMAND_COUNT][MAX_COMMAND_LEN] = {
     "connect",
     "disconnect",
     "readmsgs",
@@ -38,6 +38,31 @@ char commands[COMMAND_COUNT][MAX_COMMAND_LEN] = {
     "readversion",
     "getlasterror",
     "ioctl"
+};
+
+const char error_string[22][27] = {
+    "STATUS_NOERROR\r",
+    "ERR_NOT_SUPPORTED\r",
+    "ERR_INVALID_CHANNEL_ID\r",
+    "ERR_INVALID_PROTOCOL_ID\r",
+    "ERR_NULLPARAMETER\r",
+    "ERR_INVALID_IOCTL_VALUE\r",
+    "ERR_INVALID_FLAGS\r",
+    "ERR_FAILED\r",
+    "ERR_DEVICE_NOT_CONNECTED\r",
+    "ERR_TIMEOUT\r",
+    "ERR_INVALID_MSG\r",
+    "ERR_INVALID_TIME_INTERVAL\r",
+    "ERR_EXCEEDED_LIMIT\r",
+    "ERR_INVALID_MSG_ID\r",
+    "ERR_INVALID_ERROR_ID\r",
+    "ERR_INVAILD_IOCTL_ID\r",
+    "ERR_BUFFER_EMPTY\r",
+    "ERR_BUFFER_FULL\r",
+    "ERR_BUFFER_OVERFLOW\r",
+    "ERR_PIN_INVALID\r",
+    "ERR_CHANNEL_IN_USE\r",
+    "ERR_MSG_PROTOCOL_ID\r"
 };
 
 uint8_t question[] = { '?', COMMAND_DELIMITER_SYMB };
@@ -63,6 +88,10 @@ static uint8_t isCommand(uint8_t *cmdBuf, uint16_t cmdLen, uint8_t *cmd);
 static uint8_t parseMsg(uint8_t **iter, PassThruMessage *result);
 static uint8_t parseInt(uint8_t **iter, uint32_t *result);
 static uint8_t parseArray(uint8_t **iter, uint8_t *result);
+static void prepareIntToSend(uint32_t num, uint8_t *buf);
+static void prepareMsgToSend(PassThruMessage *msg, uint8_t *buf, uint16_t *len);
+static void sendErrorCode(uint32_t code);
+static void sendVcpData(uint8_t *buf, uint16_t len);
 
 void VCP_getInterface(PassThruComm_ItfTypeDef *interface)
 {
@@ -109,8 +138,8 @@ static uint8_t receiveCmd(uint8_t *cmd, PassThruParams *params)
     case BUF_OK:
       cmdBuf[msgLen] = '\0';
       if (parseInput(cmdBuf, cmd, params) != IF_OK) {
-        CDC_Transmit_FS(cmdBuf, msgLen);
-        while (CDC_Transmit_FS(question, sizeof(question)) != USBD_OK);
+        sendVcpData(cmdBuf, msgLen);
+        sendVcpData(question, sizeof(question));
       }
 
       break;
@@ -132,18 +161,28 @@ static uint8_t receiveCmd(uint8_t *cmd, PassThruParams *params)
 static uint8_t sendAnswer(uint8_t *cmd, PassThruAnswer *ans)
 {
   uint8_t result = IF_OK;
+  if (ans->errorCode != STATUS_NOERROR) {
+    sendErrorCode(ans->errorCode);
+    return result;
+  }
+
+  /// TODO: заменить на больший буфер
+  uint8_t sendBuf[200];
+  uint16_t strLen = 0;
 
   switch (*cmd) {
     case CONNECT:
-
+      prepareIntToSend(ans->Connect.channelId, sendBuf);
+      sendVcpData(sendBuf, 8 + 1);
       break;
 
     case DISCONNECT:
-
+      sendErrorCode(ans->errorCode);
       break;
 
     case READ_MSGS:
-
+      prepareMsgToSend(&ans->ReadMsgs.msg, sendBuf, &strLen);
+      sendVcpData(sendBuf, strLen);
       break;
 
     case WRITE_MSGS:
@@ -558,4 +597,53 @@ static uint8_t parseArray(uint8_t **iter, uint8_t *result)
   ++(*iter);
 
   return status;
+}
+
+static void prepareIntToSend(uint32_t num, uint8_t *buf)
+{
+  for (int i = 7; i >= 0; --i) {
+    if ((num & 0x0FUL) <= 9) {
+      buf[i] = '0' + (uint8_t)(num & 0x0FUL);
+    } else {
+      buf[i] = 'A' + (uint8_t)(num & 0x0FUL) - 10;
+    }
+    num >>= 4;
+  }
+  buf[8] = '\r';
+}
+
+static void prepareMsgToSend(PassThruMessage *msg, uint8_t *buf, uint16_t *len)
+{
+  int i = 0;
+  for (i = 0; i < msg->DataSize; ++i) {
+    uint8_t num = msg->Data[i];
+
+    if ((num & 0x0FUL) <= 9) {
+      buf[i*2] = '0' + (uint8_t)(num & 0x0FUL);
+    } else {
+      buf[i*2] = 'A' + (uint8_t)(num & 0x0FUL) - 10;
+    }
+
+    num >>= 4;
+
+    if ((num & 0x0FUL) <= 9) {
+      buf[i*2+1] = '0' + (uint8_t)(num & 0x0FUL);
+    } else {
+      buf[i*2+1] = 'A' + (uint8_t)(num & 0x0FUL) - 10;
+    }
+  }
+  buf[i*2] = '\r';
+  buf[i*2+1] = '\0';
+  *len = msg->DataSize * 2;
+}
+
+static void sendErrorCode(uint32_t code)
+{
+  uint8_t len = strlen(error_string[code]);
+  sendVcpData(error_string[code], len);
+}
+
+static void sendVcpData(uint8_t *buf, uint16_t len)
+{
+  while (CDC_Transmit_FS(buf, len) != USBD_OK);
 }
